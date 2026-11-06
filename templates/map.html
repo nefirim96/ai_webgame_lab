@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>구조 지도</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --line: #d7dce2;
+    --text: #1f2328;
+    --sub: #59636e;
+    --accent: #1f6f54;
+    --accent-soft: #e6f1ec;
+    --warn: #8a5a00;
+    --warn-soft: #fbf3e2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Malgun Gothic", "Segoe UI", sans-serif; color: var(--text); background: var(--bg); font-size: 14px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; font-weight: 600; margin: 0; }
+  header .meta { color: var(--sub); font-size: 12px; }
+  .layout { display: grid; grid-template-columns: 240px 1fr 340px; height: calc(100vh - 53px); min-height: 640px; }
+  aside.tree { background: var(--panel); border-right: 1px solid var(--line); padding: 14px; overflow: auto; }
+  section.map { position: relative; overflow: auto; padding: 20px; }
+  section.detail { background: var(--panel); border-left: 1px solid var(--line); padding: 16px; overflow: auto; }
+  h2 { font-size: 12px; font-weight: 600; color: var(--sub); margin: 18px 0 8px; }
+  h2:first-child { margin-top: 0; }
+  .tree-group { margin-bottom: 12px; }
+  .gname { font-size: 12px; color: var(--sub); margin-bottom: 4px; }
+  .tree-item { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: var(--text); font: inherit; }
+  .tree-item:hover { background: #eef1f4; }
+  .tree-item.sel { background: var(--accent-soft); color: var(--accent); }
+  .tree-item code { display: block; font-size: 11px; color: var(--sub); font-family: Consolas, monospace; }
+  #graph { position: relative; min-width: 700px; }
+  #links { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; }
+  .group { position: relative; z-index: 1; margin-bottom: 26px; }
+  .group .gtitle { font-size: 12px; color: var(--sub); margin-bottom: 8px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 14px; }
+  .card { width: 200px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; cursor: pointer; text-align: left; font: inherit; color: var(--text); }
+  .card:hover { border-color: #aab3bd; }
+  .card.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card .t { font-weight: 600; margin-bottom: 2px; }
+  .card .p { font-size: 11px; color: var(--sub); word-break: break-all; font-family: Consolas, monospace; }
+  .pill { display: inline-block; margin-top: 8px; font-size: 11px; padding: 2px 7px; border-radius: 10px; background: #eef1f4; color: var(--sub); }
+  .pill.done { background: var(--accent-soft); color: var(--accent); }
+  .pill.queued { background: #e4e9ef; color: #37414c; }
+  .pill.sent { background: var(--warn-soft); color: var(--warn); }
+  .ntitle { font-size: 16px; font-weight: 600; }
+  .muted { color: var(--sub); font-size: 12px; font-family: Consolas, monospace; word-break: break-all; }
+  .role { color: var(--sub); margin: 8px 0 10px; line-height: 1.6; }
+  ul.tasks { margin: 0; padding-left: 18px; line-height: 1.7; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: inherit; font-size: 12px; border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 3px 9px; cursor: pointer; color: var(--text); }
+  .chip:hover { border-color: #aab3bd; }
+  label { display: block; font-size: 12px; color: var(--sub); margin: 12px 0 4px; }
+  textarea, input[type=text] { width: 100%; font: inherit; font-size: 13px; padding: 8px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--text); }
+  textarea { min-height: 70px; resize: vertical; }
+  textarea#prompt { min-height: 200px; font-family: Consolas, monospace; font-size: 12px; background: #fafbfc; }
+  .btn { font: inherit; font-size: 13px; padding: 7px 12px; border: 1px solid var(--line); background: #fff; border-radius: 4px; cursor: pointer; color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .basket-item { border-top: 1px solid var(--line); padding: 8px 0; font-size: 13px; }
+  .basket-item .bp { font-size: 11px; color: var(--sub); font-family: Consolas, monospace; }
+  .basket-item .del { float: right; font: inherit; font-size: 12px; border: 0; background: none; color: var(--sub); cursor: pointer; }
+  .ver { border-top: 1px solid var(--line); padding: 8px 0; }
+  .empty { color: var(--sub); padding: 12px 0; font-size: 13px; }
+  .status-line { color: var(--sub); font-size: 12px; }
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; height: auto; min-height: 0; }
+    aside.tree, section.detail { border: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">구조 지도</h1>
+  <div class="meta" id="meta"></div>
+</header>
+
+<div class="layout">
+  <aside class="tree">
+    <h2>폴더 구조</h2>
+    <div id="tree"></div>
+    <h2>버전 기록</h2>
+    <div id="versions"></div>
+  </aside>
+
+  <section class="map">
+    <div id="graph"><svg id="links"></svg></div>
+  </section>
+
+  <section class="detail">
+    <div id="node-info"></div>
+    <h2>수정 요청 목록</h2>
+    <div id="basket"></div>
+    <div class="row">
+      <button class="btn primary" id="make">프롬프트 만들기</button>
+      <button class="btn" id="clear">목록 비우기</button>
+    </div>
+    <label for="prompt">출력된 프롬프트</label>
+    <textarea id="prompt" readonly placeholder="요청을 담은 뒤 '프롬프트 만들기'를 누르세요."></textarea>
+    <div class="row">
+      <button class="btn primary" id="copy">프롬프트 복사</button>
+      <span class="status-line" id="copied"></span>
+    </div>
+  </section>
+</div>
+
+<script src="map-data.js"></script>
+<script>
+(function () {
+  var D = window.MAP_DATA;
+  var byId = {};
+  D.nodes.forEach(function (n) { byId[n.id] = n; });
+  var KEY = 'claude-studio-map:' + D.project;
+  var selected = D.nodes[0].id;
+  var basket = load();
+
+  function h(tag, attrs) {
+    var e = document.createElement(tag);
+    if (attrs) {
+      for (var k in attrs) {
+        if (k === 'class') e.className = attrs[k];
+        else if (k.indexOf('on') === 0) e.addEventListener(k.slice(2), attrs[k]);
+        else e.setAttribute(k, attrs[k]);
+      }
+    }
+    for (var i = 2; i < arguments.length; i++) append(e, arguments[i]);
+    return e;
+  }
+  function append(parent, child) {
+    if (child === null || child === undefined || child === false) return;
+    if (Array.isArray(child)) { child.forEach(function (c) { append(parent, c); }); return; }
+    parent.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(basket)); } catch (e) { /* 저장이 막혀 있어도 화면은 동작합니다 */ }
+  }
+
+  function statusOf(n) {
+    if (basket.some(function (b) { return b.node === n.id && b.state === 'sent'; })) return { cls: 'sent', label: '반영 대기' };
+    if (basket.some(function (b) { return b.node === n.id; })) return { cls: 'queued', label: '요청 대기' };
+    if (n.applied) return { cls: 'done', label: '완료 ' + n.applied };
+    return { cls: '', label: '변경 없음' };
+  }
+
+  function select(id) {
+    selected = id;
+    renderAll();
+  }
+
+  function renderTree() {
+    var t = document.getElementById('tree');
+    t.innerHTML = '';
+    D.groups.forEach(function (g) {
+      var nodes = D.nodes.filter(function (n) { return n.group === g; });
+      if (!nodes.length) return;
+      t.appendChild(h('div', { class: 'tree-group' },
+        h('div', { class: 'gname' }, g),
+        nodes.map(function (n) {
+          return h('button', {
+            class: 'tree-item' + (n.id === selected ? ' sel' : ''),
+            onclick: function () { select(n.id); }
+          }, n.title, h('code', null, n.path));
+        })
+      ));
+    });
+  }
+
+  function cardFor(n) {
+    var st = statusOf(n);
+    return h('button', {
+      class: 'card' + (n.id === selected ? ' sel' : ''),
+      'data-id': n.id,
+      onclick: function () { select(n.id); }
+    },
+      h('div', { class: 't' }, n.title),
+      h('div', { class: 'p' }, n.path),
+      h('span', { class: 'pill ' + st.cls }, st.label)
+    );
+  }
+
+  function renderGraph() {
+    var wrap = document.getElementById('graph');
+    wrap.querySelectorAll('.group').forEach(function (g) { g.remove(); });
+    D.groups.forEach(function (g) {
+      var nodes = D.nodes.filter(function (n) { return n.group === g; });
+      if (!nodes.length) return;
+      wrap.appendChild(h('div', { class: 'group' },
+        h('div', { class: 'gtitle' }, g),
+        h('div', { class: 'cards' }, nodes.map(cardFor))
+      ));
+    });
+    requestAnimationFrame(drawLinks);
+  }
+
+  function drawLinks() {
+    var wrap = document.getElementById('graph');
+    var svg = document.getElementById('links');
+    svg.setAttribute('width', wrap.scrollWidth);
+    svg.setAttribute('height', wrap.scrollHeight);
+    svg.innerHTML = '';
+    var base = wrap.getBoundingClientRect();
+    var seen = {};
+    D.nodes.forEach(function (n) {
+      n.links.forEach(function (lid) {
+        if (!byId[lid]) return;
+        var key = [n.id, lid].sort().join('|');
+        if (seen[key]) return;
+        seen[key] = true;
+        var a = wrap.querySelector('[data-id="' + n.id + '"]');
+        var b = wrap.querySelector('[data-id="' + lid + '"]');
+        if (!a || !b) return;
+        var ra = a.getBoundingClientRect();
+        var rb = b.getBoundingClientRect();
+        var x1 = ra.left - base.left + ra.width / 2;
+        var y1 = ra.top - base.top + ra.height / 2;
+        var x2 = rb.left - base.left + rb.width / 2;
+        var y2 = rb.top - base.top + rb.height / 2;
+        var my = (y1 + y2) / 2;
+        var active = n.id === selected || lid === selected;
+        var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        p.setAttribute('d', 'M' + x1 + ' ' + y1 + ' C' + x1 + ' ' + my + ' ' + x2 + ' ' + my + ' ' + x2 + ' ' + y2);
+        p.setAttribute('fill', 'none');
+        p.setAttribute('stroke', active ? '#1f6f54' : '#b9c1ca');
+        p.setAttribute('stroke-width', active ? '1.5' : '1');
+        svg.appendChild(p);
+      });
+    });
+  }
+
+  function renderNodeInfo() {
+    var box = document.getElementById('node-info');
+    box.innerHTML = '';
+    var n = byId[selected];
+    if (!n) return;
+    var st = statusOf(n);
+    var req = h('textarea', { id: 'req', placeholder: '예: 보스 웨이브 체력을 1500으로 올려 주세요' });
+    var con = h('input', { type: 'text', id: 'con', placeholder: '예: 다른 웨이브 수치는 건드리지 말 것' });
+
+    box.appendChild(h('div', { class: 'ntitle' }, n.title));
+    box.appendChild(h('div', { class: 'muted' }, n.path));
+    box.appendChild(h('span', { class: 'pill ' + st.cls }, st.label));
+    box.appendChild(h('p', { class: 'role' }, n.role));
+    box.appendChild(h('h2', null, '세부 작업'));
+    box.appendChild(h('ul', { class: 'tasks' }, n.tasks.map(function (t) { return h('li', null, t); })));
+    box.appendChild(h('h2', null, '연결된 블록'));
+    box.appendChild(h('div', { class: 'chips' }, n.links.map(function (l) {
+      return h('button', { class: 'chip', onclick: function () { select(l); } }, byId[l] ? byId[l].title : l);
+    })));
+    box.appendChild(h('h2', null, '수정 요청 기록'));
+    box.appendChild(h('label', { 'for': 'req' }, '요청 내용'));
+    box.appendChild(req);
+    box.appendChild(h('label', { 'for': 'con' }, '제약 (선택)'));
+    box.appendChild(con);
+    box.appendChild(h('div', { class: 'row' },
+      h('button', { class: 'btn primary', onclick: function () { addRequest(n.id, req, con); } }, '요청 담기')
+    ));
+  }
+
+  function addRequest(id, req, con) {
+    var text = req.value.trim();
+    if (!text) { req.focus(); return; }
+    basket.push({
+      id: Date.now().toString(36),
+      node: id,
+      request: text,
+      constraint: con.value.trim(),
+      state: 'queued'
+    });
+    save();
+    renderAll();
+  }
+
+  function renderBasket() {
+    var box = document.getElementById('basket');
+    box.innerHTML = '';
+    if (!basket.length) {
+      box.appendChild(h('div', { class: 'empty' }, '담긴 요청이 없습니다. 블록을 고르고 요청을 적어 주세요.'));
+      return;
+    }
+    basket.forEach(function (b, i) {
+      var n = byId[b.node];
+      var sent = b.state === 'sent';
+      box.appendChild(h('div', { class: 'basket-item' },
+        h('button', { class: 'del', onclick: function () { removeItem(i); } }, '삭제'),
+        h('div', null, (i + 1) + '. ' + (n ? n.title : b.node) + ' ',
+          h('span', { class: 'pill ' + (sent ? 'sent' : 'queued') }, sent ? '반영 대기' : '요청 대기')),
+        h('div', { class: 'bp' }, n ? n.path : ''),
+        h('div', null, b.request),
+        b.constraint ? h('div', { class: 'muted' }, '제약: ' + b.constraint) : null
+      ));
+    });
+  }
+
+  function removeItem(i) {
+    basket.splice(i, 1);
+    save();
+    renderAll();
+  }
+
+  function nextVersion() {
+    return 'v' + D.versions.length;
+  }
+
+  function buildPrompt() {
+    if (!basket.length) return '';
+    var lines = ['[수정 요청 ' + basket.length + '건]', ''];
+    basket.forEach(function (b, i) {
+      var n = byId[b.node];
+      lines.push((i + 1) + '. 파일: ' + (n ? n.path : b.node));
+      lines.push('   위치: ' + (n ? n.title : '-'));
+      lines.push('   요청: ' + b.request);
+      lines.push('   제약: ' + (b.constraint || '없음'));
+      lines.push('');
+    });
+    lines.push('요청된 파일만 수정해 주세요.');
+    lines.push('수정이 끝나면 .claude-studio/history/ 에 ' + nextVersion() + ' 기록을 남기고, map-data.js의 versions와 applied 값을 갱신해 주세요.');
+    return lines.join('\n');
+  }
+
+  function copyText(text) {
+    return navigator.clipboard.writeText(text).then(function () { return true; }, function () {
+      var ta = document.getElementById('prompt');
+      ta.removeAttribute('readonly');
+      ta.value = text;
+      ta.select();
+      var ok = document.execCommand('copy');
+      ta.setAttribute('readonly', '');
+      return ok;
+    });
+  }
+
+  function renderVersions() {
+    var box = document.getElementById('versions');
+    box.innerHTML = '';
+    D.versions.slice().reverse().forEach(function (v) {
+      box.appendChild(h('div', { class: 'ver' },
+        h('div', { style: 'font-weight:600' }, v.id + ' · ' + v.date),
+        h('div', { class: 'muted', style: 'font-family:inherit' }, v.summary),
+        v.changes && v.changes.length
+          ? h('ul', { class: 'tasks', style: 'font-size:12px' }, v.changes.map(function (c) { return h('li', null, c); }))
+          : null
+      ));
+    });
+  }
+
+  function renderAll() {
+    renderTree();
+    renderGraph();
+    renderNodeInfo();
+    renderBasket();
+    renderVersions();
+  }
+
+  document.getElementById('title').textContent = D.project + ' 구조 지도';
+  document.getElementById('meta').textContent = '현재 ' + D.version + ' · 블록 ' + D.nodes.length + '개';
+
+  document.getElementById('make').addEventListener('click', function () {
+    var text = buildPrompt();
+    document.getElementById('prompt').value = text || '';
+    document.getElementById('copied').textContent = text ? '' : '담긴 요청이 없습니다.';
+  });
+
+  document.getElementById('copy').addEventListener('click', function () {
+    var text = document.getElementById('prompt').value || buildPrompt();
+    if (!text) { document.getElementById('copied').textContent = '담긴 요청이 없습니다.'; return; }
+    document.getElementById('prompt').value = text;
+    copyText(text).then(function (ok) {
+      if (ok) {
+        basket.forEach(function (b) { b.state = 'sent'; });
+        save();
+        renderAll();
+        document.getElementById('copied').textContent = '복사했습니다. Claude에 붙여넣으세요.';
+      } else {
+        document.getElementById('copied').textContent = '복사되지 않았습니다. 텍스트를 직접 선택해 복사하세요.';
+      }
+    });
+  });
+
+  document.getElementById('clear').addEventListener('click', function () {
+    basket = [];
+    save();
+    document.getElementById('prompt').value = '';
+    document.getElementById('copied').textContent = '';
+    renderAll();
+  });
+
+  window.addEventListener('resize', drawLinks);
+  renderAll();
+})();
+</script>
+</body>
+</html>
